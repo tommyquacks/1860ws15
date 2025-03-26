@@ -1,0 +1,45 @@
+function Sys.xor 0
+    // Get the two arguments from the stack
+    @SP
+    AM=M-1  // SP--, point to y
+    D=M     // D = y
+    @SP
+    AM=M-1  // SP--, point to x
+    D=M-D   // D = x - y (temporary storage for y in D)
+
+    // Compute (x AND (NOT y))
+    @SP
+    A=M     // Point to x
+    D=M     // D = x
+    @SP
+    A=M+1   // Point to y
+    D=D&M   // D = x AND y
+    @SP
+    A=M+1   // Point to y
+    M=!M    // M = NOT y
+    @SP
+    A=M     // Point to x
+    D=D&M   // D = x AND (NOT y)
+
+    // Compute ((NOT x) AND y)
+    @SP
+    A=M     // Point to x
+    D=!M    // D = NOT x
+    @SP
+    A=M+1   // Point to y
+    M=!M    // Restore y (undo NOT y)
+    D=D&M   // D = (NOT x) AND y
+
+    // Compute OR of the two results
+    @SP
+    A=M     // Point to x
+    D=D|M   // D = (x AND (NOT y)) OR ((NOT x) AND y)
+
+    // Push result onto stack
+    @SP
+    A=M
+    M=D     // Store result at top of stack
+    @SP
+    M=M+1   // SP++
+
+    return
