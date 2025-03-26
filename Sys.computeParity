@@ -1,0 +1,114 @@
+function Sys.computeParity 2
+    // Initialize local variables
+    @0
+    D=A
+    @LCL
+    A=M
+    M=D     // LCL[0] = 0 (loop counter i)
+    @LCL
+    A=M+1
+    M=D     // LCL[1] = 0 (parity bit)
+
+    // Pop the input
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M     // D = input
+    @SP
+    A=M
+    M=D     // Keep input on stack for later use
+
+    // Loop over bits 0 to 14
+(LOOP)
+    // Check if i < 15
+    @LCL
+    A=M     // Point to i
+    D=M     // D = i
+    @15
+    D=D-A   // D = i - 15
+    @END_LOOP
+    D;JGE   // If i >= 15, end loop
+
+    // Compute bitmask = 1 << i
+    @1
+    D=A     // D = 1
+    @LCL
+    A=M     // Point to i
+    D=M     // D = i
+    @SP
+    A=M
+    M=M+1   // Push input back (was overwritten)
+    @SP
+    A=M+1
+    M=D     // Push i
+    @SP
+    M=M+1   // SP++
+    call Sys.shiftLeft 2  // bitmask = 1 << i
+
+    // Get the ith bit: input & bitmask
+    @SP
+    AM=M-1  // SP--, point to bitmask
+    D=M     // D = bitmask
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M&D   // D = input & bitmask
+    @SP
+    A=M
+    M=M+1   // Push input back
+    @SP
+    A=M+1
+    M=D     // Push (input & bitmask)
+    @SP
+    M=M+1   // SP++
+
+    // If (input & bitmask) != 0, toggle parity
+    @SP
+    AM=M-1  // SP--, point to (input & bitmask)
+    D=M     // D = (input & bitmask)
+    @NO_TOGGLE
+    D;JEQ   // If (input & bitmask) == 0, skip toggle
+
+    // Toggle parity: parity = parity ^ 1
+    @LCL
+    A=M+1   // Point to parity
+    D=M     // D = parity
+    @SP
+    A=M
+    M=D     // Push parity
+    @1
+    D=A
+    @SP
+    A=M+1
+    M=D     // Push 1
+    @SP
+    M=M+1   // SP++
+    call Sys.xor 2  // parity = parity ^ 1
+    @SP
+    AM=M-1  // SP--, point to new parity
+    D=M     // D = new parity
+    @LCL
+    A=M+1
+    M=D     // Store new parity
+
+(NO_TOGGLE)
+    // Increment i
+    @LCL
+    A=M     // Point to i
+    D=M
+    D=D+1
+    M=D     // i++
+
+    @LOOP
+    0;JMP   // Repeat loop
+
+(END_LOOP)
+    // Push parity onto stack
+    @LCL
+    A=M+1   // Point to parity
+    D=M     // D = parity
+    @SP
+    A=M
+    M=D     // Push parity
+    @SP
+    M=M+1   // SP++
+
+    return
