@@ -1,0 +1,295 @@
+
+function Sys.xor 0
+    // Computes the bitwise XOR of the two values at the top of the stack
+    // Formula: x XOR y = (x AND (NOT y)) OR ((NOT x) AND y)
+    @SP
+    AM=M-1  // SP--, point to y
+    D=M     // D = y
+    @SP
+    AM=M-1  // SP--, point to x
+    D=M-D   // D = x - y (temporary storage for y in D)
+
+    // Compute (x AND (NOT y))
+    @SP
+    A=M     // Point to x
+    D=M     // D = x
+    @SP
+    A=M+1   // Point to y
+    D=D&M   // D = x AND y
+    @SP
+    A=M+1   // Point to y
+    M=!M    // M = NOT y
+    @SP
+    A=M     // Point to x
+    D=D&M   // D = x AND (NOT y)
+
+    // Compute ((NOT x) AND y)
+    @SP
+    A=M     // Point to x
+    D=!M    // D = NOT x
+    @SP
+    A=M+1   // Point to y
+    M=!M    // Restore y (undo NOT y)
+    D=D&M   // D = (NOT x) AND y
+
+    // Compute OR of the two results
+    @SP
+    A=M     // Point to x
+    D=D|M   // D = (x AND (NOT y)) OR ((NOT x) AND y)
+
+    // Push result onto stack
+    @SP
+    A=M
+    M=D     // Store result at top of stack
+    @SP
+    M=M+1   // SP++
+
+    return
+
+function Sys.shiftLeft 2
+    // Shifts the first argument left by the number of positions specified by the second argument
+    // Equivalent to x << y in C, or x * 2^y
+    // Uses 2 local variables: LCL[0] for loop counter, LCL[1] for result
+    @0
+    D=A
+    @LCL
+    A=M
+    M=D     // LCL[0] = 0 (loop counter i)
+    @LCL
+    A=M+1
+    M=D     // LCL[1] = 0 (result)
+
+    // Pop arguments: x (to shift), y (shift amount)
+    @SP
+    AM=M-1  // SP--, point to y
+    D=M     // D = y
+    @SP
+    AM=M-1  // SP--, point to x
+    D=M     // D = x
+    @LCL
+    A=M+1
+    M=D     // LCL[1] = x (store x in result)
+
+    // If y == 0, return x (no shift)
+    @SP
+    A=M+1   // Point to y
+    D=M     // D = y
+    @END_LOOP
+    D;JEQ   // If y == 0, jump to end
+
+    // Loop: double x, y times
+(LOOP)
+    // Check if i < y
+    @LCL
+    A=M     // Point to i
+    D=M     // D = i
+    @SP
+    A=M+1   // Point to y
+    D=D-M   // D = i - y
+    @END_LOOP
+    D;JGE   // If i >= y, end loop
+
+    // Double the result: result = result + result
+    @LCL
+    A=M+1   // Point to result
+    D=M     // D = result
+    D=D+M   // D = result + result
+    M=D     // result = 2 * result
+
+    // Increment i
+    @LCL
+    A=M     // Point to i
+    D=M
+    D=D+1
+    M=D     // i++
+
+    @LOOP
+    0;JMP   // Repeat loop
+
+(END_LOOP)
+    // Push result onto stack
+    @LCL
+    A=M+1   // Point to result
+    D=M     // D = result
+    @SP
+    A=M
+    M=D     // Push result
+    @SP
+    M=M+1   // SP++
+
+    return
+
+function Sys.computeParity 2
+    // Computes the parity of the 15 right-most bits of the input
+    // Returns 1 if the number of 1s is odd, 0 if even
+    // Ignores the left-most bit (bit 15)
+    // Uses 2 local variables: LCL[0] for loop counter, LCL[1] for parity
+    @0
+    D=A
+    @LCL
+    A=M
+    M=D     // LCL[0] = 0 (loop counter i)
+    @LCL
+    A=M+1
+    M=D     // LCL[1] = 0 (parity bit)
+
+    // Pop the input
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M     // D = input
+    @SP
+    A=M
+    M=D     // Keep input on stack for later use
+
+    // Loop over bits 0 to 14
+(LOOP)
+    // Check if i < 15
+    @LCL
+    A=M     // Point to i
+    D=M     // D = i
+    @15
+    D=D-A   // D = i - 15
+    @END_LOOP
+    D;JGE   // If i >= 15, end loop
+
+    // Compute bitmask = 1 << i
+    @1
+    D=A     // D = 1
+    @LCL
+    A=M     // Point to i
+    D=M     // D = i
+    @SP
+    A=M
+    M=M+1   // Push input back (was overwritten)
+    @SP
+    A=M+1
+    M=D     // Push i
+    @SP
+    M=M+1   // SP++
+    call Sys.shiftLeft 2  // bitmask = 1 << i
+
+    // Get the ith bit: input & bitmask
+    @SP
+    AM=M-1  // SP--, point to bitmask
+    D=M     // D = bitmask
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M&D   // D = input & bitmask
+    @SP
+    A=M
+    M=M+1   // Push input back
+    @SP
+    A=M+1
+    M=D     // Push (input & bitmask)
+    @SP
+    M=M+1   // SP++
+
+    // If (input & bitmask) != 0, toggle parity
+    @SP
+    AM=M-1  // SP--, point to (input & bitmask)
+    D=M     // D = (input & bitmask)
+    @NO_TOGGLE
+    D;JEQ   // If (input & bitmask) == 0, skip toggle
+
+    // Toggle parity: parity = parity ^ 1
+    @LCL
+    A=M+1   // Point to parity
+    D=M     // D = parity
+    @SP
+    A=M
+    M=D     // Push parity
+    @1
+    D=A
+    @SP
+    A=M+1
+    M=D     // Push 1
+    @SP
+    M=M+1   // SP++
+    call Sys.xor 2  // parity = parity ^ 1
+    @SP
+    AM=M-1  // SP--, point to new parity
+    D=M     // D = new parity
+    @LCL
+    A=M+1
+    M=D     // Store new parity
+
+(NO_TOGGLE)
+    // Increment i
+    @LCL
+    A=M     // Point to i
+    D=M
+    D=D+1
+    M=D     // i++
+
+    @LOOP
+    0;JMP   // Repeat loop
+
+(END_LOOP)
+    // Push parity onto stack
+    @LCL
+    A=M+1   // Point to parity
+    D=M     // D = parity
+    @SP
+    A=M
+    M=D     // Push parity
+    @SP
+    M=M+1   // SP++
+
+    return
+
+function Sys.encode 0
+    // Encodes the input by setting the left-most bit (bit 15) to the parity of the 15 right-most bits
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M     // D = input
+    @SP
+    A=M
+    M=D     // Keep input on stack
+
+    // Compute parity of the 15 right-most bits
+    call Sys.computeParity 1
+
+    // Pop parity
+    @SP
+    AM=M-1  // SP--, point to parity
+    D=M     // D = parity
+    @SET_BIT
+    D;JNE   // If parity == 1, jump to set bit
+
+    // Clear bit 15: input & (-32768)
+    @32768
+    D=A
+    D=-D    // D = -32768 (1111111111111111 in 2's complement)
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M&D   // D = input & (-32768)
+    @SP
+    A=M
+    M=D     // Push result
+    @SP
+    M=M+1   // SP++
+    @END
+    0;JMP
+
+(SET_BIT)
+    // Set bit 15: input | 32768
+    @32768
+    D=A     // D = 32768 (1000000000000000)
+    @SP
+    AM=M-1  // SP--, point to input
+    D=M|D   // D = input | 32768
+    @SP
+    A=M
+    M=D     // Push result
+    @SP
+    M=M+1   // SP++
+
+(END)
+    return
+
+function Sys.init 0
+    // Entry point for the program, as specified in the original Sys.vm
+    call Sys.encode 1
+
+label WHILE
+    goto WHILE
